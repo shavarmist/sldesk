@@ -1,0 +1,131 @@
+#!/bin/bash
+
+icon_size=16
+
+user_apps_dir="$HOME/.local/share/applications"
+shared_apps_dir="/usr/share/applications"
+user_apps_icons="$HOME/.local/share/icons/hicolor"
+shared_apps_icons="/usr/share/icons/hicolor"
+
+cache_dir="$HOME/.cache/dmenu_launch"
+cache_icons_dir="$cache_dir/icons"
+
+shared_apps_cache="$cache_dir/shared_apps.list"
+user_apps_cache="$cache_dir/user_apps.list"
+
+shared_apps_menu="$cache_dir/shared_apps.menu"
+user_apps_menu="$cache_dir/user_apps.menu"
+all_apps_menu="$cache_dir/apps.menu"
+
+do_clear_cache=""
+do_only_users=""
+do_help=""
+bad_args=""
+
+LC_ALL=C
+
+argc=$#
+for (( i=1; i<=$argc; i++ ))
+do
+	arg=${!i}
+	if [[ "$arg" == "--clear-cache" ]]; then
+		do_clear_cache="1"
+	elif [[ "$arg" == "--only-users" ]]; then
+		do_only_users="1"
+	elif [[ "$arg" == "--help" ]] || [[ "$arg" == "-h" ]]; then
+		do_help="1"
+	else
+		bad_args="$arg"
+	fi
+done
+
+if [ -n "$bad_args" ]; then
+	echo "Error: Unrecognized argument $bad_args"
+	do_help="1"
+fi
+
+if [ -n "$do_help" ]; then
+	echo "dmenu_refresh [--clear-cache] [--only-users]"
+	exit
+fi
+
+if [ -n "$do_clear_cache" ]; then
+	rm -rf "$cache_dir"
+fi
+
+mkdir -p "$cache_dir"
+mkdir -p "$cache_icons_dir"
+
+get_property() {
+	cat "$1" | grep -E '^'"$2"'[[:space:]]*=' | head -n 1 | sed 's/^[^=]*=//g'
+}
+
+icon_id=$(find "$cache_icons_dir" -mindepth 1 -maxdepth 1 | wc -l)
+
+resolve_icon() {
+	local icon_dir="$1"
+	local icon_name="$2"
+	local icon_id="$3"
+	local icon_path=""
+
+	if [[ "$icon_name" == '/'* ]] && [ -f "$icon_name" ]; then
+		icon_path="$icon_name" 
+	else
+		for subdir in "$icon_dir"/*; do
+			if [ ! -d "$subdir/apps" ]; then
+				continue
+			fi
+			icon_path=$(find "$subdir/apps" -maxdepth 1 -name "$icon_name.*" -print -quit)
+			if [ -n "$icon_path" ]; then
+				break
+			fi
+		done
+	fi
+	if [ -n "$icon_path" ]; then
+		echo "Found $icon_name: $icon_path" >&2
+		magick "$icon_path" -resize 16x16 "$cache_icons_dir/$icon_id.png"
+		echo "$cache_icons_dir/$icon_id.png"
+	else
+		echo "Not found $icon_name" >&2
+	fi
+}
+
+update_cache() {
+	local apps_dir="$1"
+	local apps_cache="$2"
+	local apps_menu="$3"
+	local apps_icons="$4"
+
+	if [ ! -f "$apps_cache" ]; then
+		touch "$apps_cache"
+	fi
+
+	find "$apps_dir" -maxdepth 1 -mindepth 1 -printf '%f\n' | \
+		grep -E '\.desktop$' | sort > "$apps_cache.2"
+
+	diff "$apps_cache.2" "$apps_cache" | \
+		grep '^< ' | sed 's/^..//g' | \
+	while IFS= read -r desktop_filename; do
+		local desktop_file="$apps_dir/$desktop_filename"
+		local name="$(get_property "$desktop_file" Name)"
+		local cmd="$(get_property "$desktop_file" Exec | sed 's/%[uUfFick]//g')"
+		local use_terminal=$(get_property "$desktop_file" Terminal)
+		if [[ "$use_terminal" == "true" ]]; then
+			cmd="st $cmd"
+		fi
+		local icon="$(resolve_icon "$apps_icons" "$(get_property "$desktop_file" Icon)" "$icon_id")"
+		icon_id=$(($icon_id+1))
+		local comment="$(get_property "$desktop_file" Comment)"
+		echo "${#name}:${name}#icon=${#icon}:${icon};cmd=${#cmd}:${cmd};cmnt=${#comment}:${comment}" \
+			>> "$apps_menu"
+	done
+
+	mv "$apps_cache.2" "$apps_cache"
+}
+
+if [ ! -n "$do_only_users" ]; then
+	update_cache "$shared_apps_dir" "$shared_apps_cache" "$shared_apps_menu" "$shared_apps_icons"
+fi
+update_cache "$user_apps_dir" "$user_apps_cache" "$user_apps_menu" "$user_apps_icons"
+cat "$user_apps_menu" "$shared_apps_menu" > "$all_apps_menu"
+

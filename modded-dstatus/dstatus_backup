@@ -1,0 +1,96 @@
+#!/bin/sh
+
+icon_path="/usr/local/share/altca-dstatus/resources/icons"
+
+netstring() {
+	local value="$1"
+	(LC_ALL=C; echo "${#value}:${value}")
+}
+
+get_network_status() {
+	local iface=$(ip route | awk '/default/ {print $5; exit}')
+
+	if [ -n "$iface" ]; then
+		local conn_type
+		if [ -d "/sys/class/net/$iface/wireless" ]; then
+			conn_type="wifi"
+		else
+			conn_type="ethernet"
+		fi
+		echo "icon=$(netstring "${icon_path}/${conn_type}.png")"
+	fi
+}
+
+get_battery_status() {
+	local bat=$(find /sys/class/power_supply -maxdepth 1 | grep -E 'BAT[0-9]*$' | head -n 1)
+
+	if [ -n "$bat" ]; then
+		local capacity=$(( 100 * $(cat "${bat}/charge_now") \
+			/ $(cat "${bat}/charge_full_design") ))
+		local batstatus=$(cat "$bat/status")
+
+		local text="${capacity}%"
+		local icon="${icon_path}/battery.png"
+
+		if [[ "$batstatus" == "Charging" ]]; then
+			icon="${icon_path}/charging.png"
+		fi
+		echo "text=$(netstring " $text");icon=$(netstring "$icon")"
+	fi
+}
+
+get_time_status() {
+	local curr_time=$(date +"%H:%M:%S")
+	local icon="${icon_path}/clock.png"
+	echo "text=$(netstring "$curr_time");icon=$(netstring "$icon")"
+}
+
+get_center() {
+	date +"%A %b %d %Y"
+}
+
+
+get_status_string() {
+	local status_string="$(get_center)#"
+
+	local network_status=$(get_network_status)
+	local battery_status=$(get_battery_status)
+	local time_status=$(get_time_status)
+
+	local first_entry="1"
+
+	for sstr in "$network_status" "$battery_status" "$time_status"; do
+		if [ -z "$sstr" ]; then
+			continue
+		fi
+		if [ -n "$first_entry" ]; then
+			first_entry=""
+		else
+			status_string+=";"
+		fi
+		status_string+="$sstr"
+	done
+
+	echo "$status_string"
+}
+
+
+while true; do
+	xprop -root -set WM_NAME "$(get_status_string)"
+	sleep $(( 5 - ( $(date +"%S") % 5 ) ))
+done
+
+#icons=""
+#first_time="1"
+#
+#for file in $(find "$HOME/.cache/dmenu_launch/icons/" -type f); do
+#	if [ -n "$first_time" ]; then
+#		first_time=""
+#	else
+#		icons+=";"
+#	fi
+#	icons+="icon=${#file}:${file}"
+#done
+#
+#xprop -root -set WM_NAME "This#${icons}"
+

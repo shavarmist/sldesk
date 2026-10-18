@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Simple Terminal
+GenericName=Terminal
+Comment=Use the command line
+TryExec=st
+Exec=st
+Icon=st
+Type=Application
+Categories=GTK;System;TerminalEmulator;
+Keywords=console;command line;execute;
+

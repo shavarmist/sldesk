@@ -1,0 +1,4 @@
+#!/bin/bash
+PREFIX=/usr/local \
+MANPREFIX=/usr/local/share/man \
+make $1

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+echo "This script only copies sld-xinitrc and sldesk.desktop into proper directores. You must manually run make (or ./emake) in the subdirectories of utilities you wish to install."
+
+PREFIX=/usr/local
+
+cp -f sld-xinitrc $PREFIX/bin/
+chmod 755 $PREFIX/bin/sld-xinitrc
+
+cp -f sldesk.desktop /usr/share/xsessions/
+chmod 644 /usr/share/xsessions/sldesk.desktop
+

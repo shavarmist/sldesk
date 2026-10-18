@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=sl-desk dwm
+Comment=tiling window manager
+Exec=sld-xinitrc
+TryExec=sld-xinitrc
+Type=XSession
+X-LightDM-DesktopName=sl-desk dwm
+DesktopNames=sl-desk dwm
+Keywords=tiling;wm;windowmanager;window;manager;

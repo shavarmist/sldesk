@@ -1,0 +1,16 @@
+#!/bin/sh
+
+icons=""
+first_time="1"
+
+for file in $(find "$HOME/.cache/dmenu_launch/icons/" -type f); do
+	if [ -n "$first_time" ]; then
+		first_time=""
+	else
+		icons+=";"
+	fi
+	icons+="icon=${#file}:${file}"
+done
+
+xprop -root -set WM_NAME "This#${icons}"
+

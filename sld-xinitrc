@@ -1,0 +1,10 @@
+#!/bin/bash
+
+dstatus &
+dmenu_refresh
+
+bgfile="$(find ~ -maxdepth 1 -mindepth 1 -type f | grep -Ei '\.(jpg|jpeg|png|bmp|webp|gif)$' | awk 'NR == 1')"
+[[ -n "$bgfile" ]] && feh --bg-fill "$bgfile"
+
+exec dwm
+

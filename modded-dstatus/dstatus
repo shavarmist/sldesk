@@ -1,0 +1,102 @@
+#!/bin/sh
+
+icon_path="/usr/local/share/altca-dstatus/resources/icons"
+
+counter=99
+counter_max=100
+
+netstring() {
+	local value="$1"
+	(LC_ALL=C; echo "${#value}:${value}")
+}
+
+network_status=""
+get_network_status() {
+	if [ $(( ${counter} % 5 )) == 0 ]; then
+		
+		local iface=$(ip route | awk '/default/ {print $5; exit}')
+
+		if [ -n "$iface" ]; then
+			local conn_type
+			if [ -d "/sys/class/net/$iface/wireless" ]; then
+				conn_type="wifi"
+			else
+				conn_type="ethernet"
+			fi
+			network_status="icon=$(netstring "${icon_path}/${conn_type}.png")"
+		else
+			network_status=""
+		fi
+	fi
+
+	echo "$network_status"
+}
+
+battery_status=""
+get_battery_status() {
+	if [ $(( ${counter} % 5 )) == 0 ]; then
+
+		local bat=$(find /sys/class/power_supply -maxdepth 1 | grep -E 'BAT[0-9]*$' | head -n 1)
+
+		if [ -n "$bat" ]; then
+			local capacity=$(( 100 * $(cat "${bat}/charge_now") \
+				/ $(cat "${bat}/charge_full_design") ))
+			local batstatus=$(cat "$bat/status")
+
+			local text="${capacity}%"
+			local icon="${icon_path}/battery.png"
+
+			if [[ "$batstatus" == "Charging" ]]; then
+				icon="${icon_path}/charging.png"
+			fi
+			battery_status="text=$(netstring " $text");icon=$(netstring "$icon")"
+		fi
+	fi
+	echo "$battery_status"
+}
+
+get_time_status() {
+	local curr_time=$(date +"%H:%M:%S")
+	local icon="${icon_path}/clock.png"
+	echo "text=$(netstring " $curr_time");icon=$(netstring "$icon")"
+}
+
+get_center() {
+	date +"%A %b %d %Y"
+}
+
+
+update_status_string() {
+	local status_string="$(get_center)#"
+
+	network_status=$(get_network_status)
+	battery_status=$(get_battery_status)
+	time_status=$(get_time_status)
+
+	local first_entry="1"
+
+	for sstr in "$network_status" "$battery_status" "$time_status"; do
+		if [ -z "$sstr" ]; then
+			continue
+		fi
+		if [ -n "$first_entry" ]; then
+			first_entry=""
+		else
+			status_string+=";"
+		fi
+		status_string+="$sstr"
+	done
+
+	xprop -root -set WM_NAME "$status_string"
+}
+
+
+while true; do
+	update_status_string
+	counter=$(($counter + 1))
+	if [[ $counter == $counter_max ]]; then
+		counter=0
+	fi
+	sleep 1
+done
+

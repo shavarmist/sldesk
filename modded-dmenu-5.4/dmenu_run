@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cache_dir="$HOME/.cache/dmenu_launch"
+menu_file="$cache_dir/apps.menu"
+
+[ -f "$menu_file" ] || dmenu_refresh
+
+cat "$menu_file" | dmenu -meta -cmnt -i -p ">>>" 2>/dev/null | sed 's/^@//g' | bash &
+
